@@ -1,13 +1,27 @@
 package main
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"github.com/gofiber/contrib/websocket"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/template/jet/v2"
+	"go-ws/internal/handler"
+)
 
 func routes() *fiber.App {
-	mux := fiber.New()
-
-	mux.Get("/healthz", func(c *fiber.Ctx) error {
-		return c.SendString("ok")
+	engine := jet.New("./html", ".jet")
+	app := fiber.New(fiber.Config{
+		Views: engine,
 	})
 
-	return mux
+	// normal route
+	app.Get("/healthz", func(c *fiber.Ctx) error {
+		return c.SendString("ok")
+	})
+	app.Get("/", handler.Home)
+
+	// ws
+	app.Use(handler.Upgrade)
+	app.Get("/ws", websocket.New(handler.ListenWs))
+
+	return app
 }

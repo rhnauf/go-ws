@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/joho/godotenv"
+	"go-ws/internal/handler"
 	"log"
 	"os"
 )
@@ -14,12 +15,15 @@ func main() {
 		return
 	}
 
-	mux := routes()
+	app := routes()
+
+	log.Println("starting chat hub")
+	go handler.Hub()
 
 	port := os.Getenv("PORT")
 	log.Println("starting web server on port:", port)
 
-	err = mux.Listen(fmt.Sprintf(":%s", port))
+	err = app.Listen(fmt.Sprintf(":%s", port))
 	if err != nil {
 		panic(err)
 	}
