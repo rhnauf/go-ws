@@ -29,10 +29,11 @@ type WebSocketConnection struct {
 }
 
 type WsRequest struct {
-	Action   string              `json:"action"`
-	Username string              `json:"username"`
-	Message  string              `json:"message"`
-	Conn     WebSocketConnection `json:"-"`
+	Action    string              `json:"action"`
+	Username  string              `json:"username"`
+	Recipient string              `json:"recipient"`
+	Message   string              `json:"message"`
+	Conn      WebSocketConnection `json:"-"`
 }
 
 func ListenWs(ctx *websocket.Conn) {
@@ -62,10 +63,10 @@ type User struct {
 var clients = make(map[WebSocketConnection]User)
 
 type WsResponse struct {
-	Action         string   `json:"action"`
-	Message        string   `json:"message"`
-	MessageType    string   `json:"message_type"`
-	ConnectedUsers []string `json:"connected_users"`
+	Action      string `json:"action"`
+	Message     string `json:"message"`
+	MessageType string `json:"message_type"`
+	//ConnectedUsers []string `json:"connected_users"`
 }
 
 func Hub() {
@@ -73,6 +74,8 @@ func Hub() {
 
 	for {
 		event := <-wsChan
+		sender := event.Username
+		recipient := event.Recipient
 		switch event.Action {
 		case "connect":
 			clients[event.Conn] = User{
@@ -80,17 +83,17 @@ func Hub() {
 				username: event.Username,
 			}
 			response.Action = "list_users"
-			response.ConnectedUsers = getUserList()
-			broadcastAll(response)
+			//response.ConnectedUsers = getUserList()
+			findAndBroadcast(response, sender, recipient)
 		case "left":
 			response.Action = "list_users"
 			delete(clients, event.Conn)
-			response.ConnectedUsers = getUserList()
-			broadcastAll(response)
+			//response.ConnectedUsers = getUserList()
+			findAndBroadcast(response, sender, recipient)
 		case "broadcast":
 			response.Action = "broadcast"
 			response.Message = fmt.Sprintf("%v &emsp; <strong>%s</strong>: %s", time.Now().Local().Format("2006-01-02 15:04:05"), event.Username, event.Message)
-			broadcastAll(response)
+			findAndBroadcast(response, sender, recipient)
 		}
 	}
 }
@@ -106,13 +109,15 @@ func getUserList() []string {
 	return userList
 }
 
-func broadcastAll(response WsResponse) {
+func findAndBroadcast(response WsResponse, sender, recipient string) {
 	for conn := range clients {
-		err := conn.Conn.WriteJSON(response)
-		if err != nil {
-			log.Println("error occurred broadcasting message")
-			_ = conn.Conn.Close()
-			delete(clients, conn)
+		if clients[conn].username == sender || clients[conn].username == recipient {
+			err := conn.Conn.WriteJSON(response)
+			if err != nil {
+				log.Println("error occurred broadcasting message")
+				_ = conn.Conn.Close()
+				delete(clients, conn)
+			}
 		}
 	}
 }
