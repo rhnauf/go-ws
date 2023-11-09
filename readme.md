@@ -24,8 +24,6 @@ build and run
 
 ```make build-run```
 
-open localhost:8080 on the browser
-
 to fetch messages data manually hit endpoint below:
 ```
     localhost:8080/message/list [GET]
@@ -38,6 +36,7 @@ to fetch messages data manually hit endpoint below:
     example: http://localhost:8080/message/list?username=user%20a&recipient=user%20b&start_date=2023-11-08%2010%3A00%3A00&end_date=2023-11-10%2010%3A00%3A00
 ```
 
+to access the page, go to localhost:8080 on the browser
 - - - -
 Todo:
 - [ ] implement supabase on the frontend
