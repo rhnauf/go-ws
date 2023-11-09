@@ -5,16 +5,27 @@ import (
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"go-ws/internal/entity"
+	"go-ws/internal/service"
 	"log"
-	"sort"
 	"time"
 )
 
-func Home(ctx *fiber.Ctx) error {
+type WsHandler struct {
+	messageService service.MessageService
+}
+
+func NewWsHandler(messageService service.MessageService) *WsHandler {
+	return &WsHandler{
+		messageService: messageService,
+	}
+}
+
+func (h *WsHandler) Home(ctx *fiber.Ctx) error {
 	return ctx.Render("home", nil)
 }
 
-func Upgrade(ctx *fiber.Ctx) error {
+func (h *WsHandler) Upgrade(ctx *fiber.Ctx) error {
 	if websocket.IsWebSocketUpgrade(ctx) {
 		ctx.Locals("allowed", true)
 		return ctx.Next()
@@ -36,7 +47,7 @@ type WsRequest struct {
 	Conn      WebSocketConnection `json:"-"`
 }
 
-func ListenWs(ctx *websocket.Conn) {
+func (h *WsHandler) ListenWs(ctx *websocket.Conn) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("error", fmt.Sprintf("%v", r))
@@ -66,10 +77,9 @@ type WsResponse struct {
 	Action      string `json:"action"`
 	Message     string `json:"message"`
 	MessageType string `json:"message_type"`
-	//ConnectedUsers []string `json:"connected_users"`
 }
 
-func Hub() {
+func (h *WsHandler) Hub() {
 	var response WsResponse
 
 	for {
@@ -83,30 +93,33 @@ func Hub() {
 				username: event.Username,
 			}
 			response.Action = "list_users"
-			//response.ConnectedUsers = getUserList()
 			findAndBroadcast(response, sender, recipient)
 		case "left":
 			response.Action = "list_users"
 			delete(clients, event.Conn)
-			//response.ConnectedUsers = getUserList()
 			findAndBroadcast(response, sender, recipient)
 		case "broadcast":
 			response.Action = "broadcast"
 			response.Message = fmt.Sprintf("%v &emsp; <strong>%s</strong>: %s", time.Now().Local().Format("2006-01-02 15:04:05"), event.Username, event.Message)
+
+			// insert message to db
+			m := &entity.Message{
+				Id:        uuid.New().String(),
+				Username:  event.Username,
+				Recipient: event.Recipient,
+				Message:   event.Message,
+			}
+			err := h.messageService.CreateMessage(m)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			log.Println("entry created successfully =>", m)
+
 			findAndBroadcast(response, sender, recipient)
 		}
 	}
-}
-
-func getUserList() []string {
-	var userList []string
-	for _, conn := range clients {
-		if conn.username != "" {
-			userList = append(userList, conn.username)
-		}
-	}
-	sort.Strings(userList)
-	return userList
 }
 
 func findAndBroadcast(response WsResponse, sender, recipient string) {
