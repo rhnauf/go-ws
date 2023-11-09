@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/joho/godotenv"
-	"go-ws/internal/db"
 	"log"
 	"os"
+
+	"github.com/joho/godotenv"
+
+	"go-ws/internal/db"
 )
 
 func Run() error {
@@ -13,7 +15,7 @@ func Run() error {
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("error loading environment variables")
-		return nil
+		return err
 	}
 
 	// initialize db conn
